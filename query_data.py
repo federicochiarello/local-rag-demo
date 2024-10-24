@@ -2,7 +2,6 @@ import argparse
 from langchain_chroma import Chroma
 from langchain.prompts import ChatPromptTemplate
 from langchain_ollama import OllamaLLM
-
 from get_embedding_function import get_embedding_function
 
 CHROMA_PATH = "chroma"
@@ -19,7 +18,6 @@ Answer the question based on the above context: {question}
 
 
 def main():
-    # Create CLI.
     parser = argparse.ArgumentParser()
     parser.add_argument("query_text", type=str, help="The query text.")
     args = parser.parse_args()
@@ -51,3 +49,4 @@ def query_rag(query_text: str):
 
 if __name__ == "__main__":
     main()
+

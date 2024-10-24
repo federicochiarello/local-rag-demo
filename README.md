@@ -1,1 +1,6 @@
-# rag-tutorial-v2
+# Local RAG demo
+
+## Tools:
+- LangChain
+- Ollama
+- ChromaDB

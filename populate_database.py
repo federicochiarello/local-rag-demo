@@ -1,37 +1,74 @@
 import argparse
 import os
 import shutil
+from pathlib import Path
 from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain_community.document_loaders.csv_loader import CSVLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
-from get_embedding_function import get_embedding_function
-# from langchain_community.vectorstores import Chroma
 from langchain_chroma import Chroma
+from get_embedding_function import get_embedding_function
 
 
-CHROMA_PATH = "chroma"
-DATA_PATH = "data"
+CHROMA_PATH = Path('chroma')
+PDF_PATH = Path('data/pdf')
+CSV_PATH = Path('data/csv')
 
 
 def main():
-
-    # Check if the database should be cleared (using the --clear flag).
+    # Check if the database should be cleared (using the --reset flag)
     parser = argparse.ArgumentParser()
     parser.add_argument("--reset", action="store_true", help="Reset the database.")
     args = parser.parse_args()
     if args.reset:
-        print("✨ Clearing Database")
+        print("Clearing Database")
         clear_database()
 
     # Create (or update) the data store.
-    documents = load_documents()
-    chunks = split_documents(documents)
+    chunks = load_documents()
     add_to_chroma(chunks)
 
 
 def load_documents():
-    document_loader = PyPDFDirectoryLoader(DATA_PATH)
+    """
+    Load PDF and CSV documents from the predefined directories.
+
+    Returns:
+        list: A list containing the chunks extracted from the files.
+    """
+    pdf_documents = pdf_loader()
+    pdf_chunks = split_documents(pdf_documents)
+    csv_chuncks = csv_loader()
+    return pdf_chunks + csv_chuncks
+
+
+def pdf_loader():
+    """
+    Processes a list of PDF files, loads data, and returns the aggregated data.
+
+    Returns:
+        list: A list containing the content of the PDF files.
+    """
+    document_loader = PyPDFDirectoryLoader(str(PDF_PATH))
     return document_loader.load()
+
+
+def csv_loader():
+    """
+    Processes a list of CSV files, loads data, and returns the aggregated data.
+
+    Returns:
+        list: A list containing the aggregated data from all CSV files. Every entry in the list correspond to a row of the csv
+    """
+    file_paths = [f for f in CSV_PATH.iterdir() if f.is_file() and f.suffix == '.csv']
+    data = []
+
+    for file_path in file_paths:
+        loader = CSVLoader(file_path=str(file_path))
+        file_data = loader.load()
+        data.extend(file_data)
+
+    return data
 
 
 def split_documents(documents: list[Document]):
@@ -47,7 +84,7 @@ def split_documents(documents: list[Document]):
 def add_to_chroma(chunks: list[Document]):
     # Load the existing database.
     db = Chroma(
-        persist_directory=CHROMA_PATH, embedding_function=get_embedding_function()
+        persist_directory=str(CHROMA_PATH), embedding_function=get_embedding_function()
     )
 
     # Calculate Page IDs.
@@ -65,19 +102,21 @@ def add_to_chroma(chunks: list[Document]):
             new_chunks.append(chunk)
 
     if len(new_chunks):
-        print(f"👉 Adding new documents: {len(new_chunks)}")
+        print(f"Adding new documents: {len(new_chunks)}")
         new_chunk_ids = [chunk.metadata["id"] for chunk in new_chunks]
         db.add_documents(new_chunks, ids=new_chunk_ids)
-        # db.persist()  deprecated
     else:
-        print("✅ No new documents to add")
+        print("No new documents to add")
 
 
 def calculate_chunk_ids(chunks):
+    """
+    Create chunks IDs like "data/example.pdf:6:2"
+    [Page Source : Page Number : Chunk Index]
 
-    # This will create IDs like "data/monopoly.pdf:6:2"
-    # Page Source : Page Number : Chunk Index
-
+    Returns:
+        list: A list of chunks with their IDs.
+    """
     last_page_id = None
     current_chunk_index = 0
 
@@ -103,9 +142,10 @@ def calculate_chunk_ids(chunks):
 
 
 def clear_database():
-    if os.path.exists(CHROMA_PATH):
-        shutil.rmtree(CHROMA_PATH)
+    if os.path.exists(str(CHROMA_PATH)):
+        shutil.rmtree(str(CHROMA_PATH))
 
 
 if __name__ == "__main__":
     main()
+

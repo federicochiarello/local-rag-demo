@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 from pathlib import Path
+import pandas as pd
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_community.document_loaders.csv_loader import CSVLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -10,7 +11,11 @@ from langchain_chroma import Chroma
 from get_embedding_function import get_embedding_function
 
 
-CHROMA_PATH = Path('chroma')
+# CHROMA_PATH = Path('chroma')              # 800 - 80
+# CHROMA_PATH = Path('chroma_1000_150')     # 1000 - 150
+# CHROMA_PATH = Path('chroma_csv')          # 1000 - 150
+CHROMA_PATH = Path('chroma_csv_pdf')
+
 PDF_PATH = Path('data/pdf')
 CSV_PATH = Path('data/csv')
 
@@ -53,28 +58,68 @@ def pdf_loader():
     return document_loader.load()
 
 
+def parse_csv_to_list(file_path):
+    """
+    Processes the content of a CSV file, loads data, and create a list containing one element per row. 
+    Each element of the list corresponds to a string. The string content is structured as follows:
+
+    "
+    col_1: df[x][1]
+    ...
+    col_n: df[x][n]
+    "
+
+    If the content of a cell is missing, then the corresponding row in the string is removed.
+
+    Returns:
+        list: A list containing the content of the CSV file. Every entry in the list correspond to a row of the CSV
+    """
+    df = pd.read_csv(file_path)
+    formatted_rows = []
+    
+    for index, row in df.iterrows():
+        
+        row_content = []
+        for col in df.columns:
+            cell_content = row[col]
+            # Only include cells that are not empty
+            if pd.notna(cell_content):
+                row_content.append(f"{col}: {cell_content}")
+        
+        # Join each column's content with a newline and add to the list
+        document = Document(
+            page_content="\n".join(row_content),
+            metadata={'source': file_path, 'row': index}
+        )
+        formatted_rows.append(document)
+    
+    return formatted_rows
+
+
 def csv_loader():
     """
     Processes a list of CSV files, loads data, and returns the aggregated data.
 
     Returns:
-        list: A list containing the aggregated data from all CSV files. Every entry in the list correspond to a row of the csv
+        list: A list containing the aggregated data from all CSV files. Every entry in the list correspond to a row of the CSV
     """
     file_paths = [f for f in CSV_PATH.iterdir() if f.is_file() and f.suffix == '.csv']
     data = []
+    print(f"Loading {len(file_paths)} files.\nFile names: {file_paths}")
 
     for file_path in file_paths:
-        loader = CSVLoader(file_path=str(file_path))
-        file_data = loader.load()
+        file_data = parse_csv_to_list(file_path=str(file_path))  # Ensure loader receives a string path
         data.extend(file_data)
+
+        print(file_data[0], "\n\n", file_data[-1], "\n\n")
 
     return data
 
 
 def split_documents(documents: list[Document]):
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=800,
-        chunk_overlap=80,
+        chunk_size=1000,
+        chunk_overlap=150,
         length_function=len,
         is_separator_regex=False,
     )

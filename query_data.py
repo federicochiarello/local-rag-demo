@@ -4,7 +4,10 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_ollama import OllamaLLM
 from get_embedding_function import get_embedding_function
 
-CHROMA_PATH = "chroma"
+#CHROMA_PATH = "chroma"
+#CHROMA_PATH = "chroma_1000_150"
+#CHROMA_PATH = "chroma_csv"
+CHROMA_PATH = "chroma_csv_pdf"
 
 PROMPT_TEMPLATE = """
 Answer the question based only on the following context:
@@ -13,7 +16,10 @@ Answer the question based only on the following context:
 
 ---
 
+You are a chatbot who answers questions about climate change with a strong understanding of Nature-Based Solutions (NBS).
 Answer the question based on the above context: {question}
+Do not start your answer with sentences such as: "According to the text" or "According to the provided context"
+The answer should approximately contain between 100 and 200 words.
 """
 
 
@@ -38,7 +44,8 @@ def query_rag(query_text: str):
     prompt = prompt_template.format(context=context_text, question=query_text)
     print(prompt)
 
-    model = OllamaLLM(model="llama3.1")
+    # model = OllamaLLM(model="llama3.1")
+    model = OllamaLLM(model="llama3.1", temperature=0.7)
     response_text = model.invoke(prompt)
 
     sources = [doc.metadata.get("id", None) for doc, _score in results]
